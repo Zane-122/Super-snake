@@ -52,7 +52,7 @@ const Toggle: React.FC<ToggleProps> = ({ isOn, onToggle, label, color}) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: 'fit-content', padding: "3px", backgroundColor: color ? color : 'rgba(255, 160, 249, 0.5)', borderRadius: '15px', border: '4px solid black'}}>
     <ToggleLabel onClick={onToggle}>
-      {label && <span>{label}</span>}
+      {label && <span style={{fontSize: '18px'}}>{label}</span>}
       <ToggleContainer isOn={isOn} color={color}>
         <ToggleThumb isOn={isOn} />
       </ToggleContainer>

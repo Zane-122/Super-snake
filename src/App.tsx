@@ -27,7 +27,7 @@ const BackgroundTile = styled.div`
   z-index: -1;
 `;
 
-const Container = styled.div<{ backgroundColor: string}>`
+const Container = styled.div<{ backgroundColor: string, scale?: number}>`
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -42,6 +42,9 @@ const Container = styled.div<{ backgroundColor: string}>`
   margin: 0 10px;
   padding: 0px;
   box-shadow: 0px 15px 0px black;
+  transition: all 0.5s ease;
+  width: ${({ scale }) => scale ? `${scale * 100}%` : '100%'};
+  overflow: auto;
 `;
 
 const MainContainer = styled.div`
@@ -91,6 +94,8 @@ function AppContent(): JSX.Element {
   const [showUI, setShowUI] = useState(true);
   const [highScore, setHighScore] = useState(0);
   const [sendToLeaderboard, setSendToLeaderboard] = useState(true);
+  const [showGeneral, setShowGeneral] = useState(true);
+  const [showLeaderboard, setShowLeaderboard] = useState(true);
 
   // Real-time high score listener
   useEffect(() => {
@@ -115,8 +120,12 @@ function AppContent(): JSX.Element {
 
       <MainContainer>
         {/* Shop */}
-        <Container backgroundColor='rgba(255, 226, 249, 0.51)'>
+        <Container backgroundColor='rgba(255, 226, 249, 0.51)' scale={showGeneral ? (!showLeaderboard ? 0.55 : 1) : 0.1} onClick={() => {if (!showGeneral) setShowGeneral(true)}}>
+          {showGeneral ? (<>
           <h1 style={{ color: 'black', fontSize: '62px', fontWeight: 'bold', margin: '40px 0px 0px 0px' }}>General</h1>
+          <LoginButton onClick={() => setShowGeneral(!showGeneral)}>
+            {showGeneral ? 'Hide General' : 'Show General'}
+          </LoginButton>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: '100%', padding: '20px 0' }}>
             {!currentUser ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', padding: '20px 0' }}>
               {isSignup ? <Signup /> : <Login />}
@@ -133,34 +142,75 @@ function AppContent(): JSX.Element {
               <Toggle isOn={!!currentUser && sendToLeaderboard} onToggle={() => setSendToLeaderboard(!sendToLeaderboard)} label='Save to leaderboard' color='rgba(255, 217, 0, 0.5)'/>
             </div>
           </div>
-      </Container>
+          </>) : <>
+          <div style={{ 
+            position: 'relative', 
+            width: '100%', 
+            height: '100%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            cursor: 'pointer'
+          }}>
+            <h1 style={{ 
+              color: 'black', 
+              fontSize: '32px', 
+              fontWeight: 'bold',
+              transform: 'rotate(-90deg)',
+              whiteSpace: 'nowrap',
+              margin: '0',
+              textAlign: 'center',
+              userSelect: 'none'
+            }}>
+              Click to show General
+            </h1>
+          </div>
+          
+          </>}
+        </Container>
 
         {/* Game */}
         <Container backgroundColor='rgba(159, 189, 255, 0.55)'>
           <Game showUI={showUI} />
         </Container>
-{/* 
-        Leaderboard */}
-        <Container backgroundColor={currentUser ? 'rgba(255, 218, 117, 0.55)' : 'rgba(255, 255, 255, 0.23)'}>
-          <h1 style={{ color: 'black', fontSize: '62px', fontWeight: 'bold', margin: '40px 0px 0px 0px' }}>Leaderboard</h1>
-          <h5 style={{ color: 'black', fontSize: '24px', fontWeight: 'bold', margin: '10px 0px' }}>In Realtime!</h5>
-          {!currentUser ?(<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '80%'}}>
-            <p></p>
-            <p></p>
-            <p></p>
-            <p></p>
-            <img 
-              src={lockImage}      
-              alt="Lock" 
-              style={{ 
-                width: '200px', 
-                height: '200px', 
-                display: 'block'
-              }} 
-            />
-            <h5 style={{ color: 'black', fontSize: '20px', fontWeight: '100', padding: '20px', margin: '0px' }}>Log in or sign up to see the leaderboard and save your scores!</h5>
-          </div>) : <Leaderboard />}
-          
+{/* Leaderboard */}
+        <Container backgroundColor={currentUser ? 'rgba(255, 218, 117, 0.55)' : 'rgba(255, 255, 255, 0.23)'} scale={(showLeaderboard ? (!showGeneral ? 0.55 : 1) : 0.1)} onClick={() => {if (!showLeaderboard) setShowLeaderboard(true)}}>
+          {showLeaderboard ? (<>
+            <h1 style={{ color: 'black', fontSize: '62px', fontWeight: 'bold', margin: '40px 0px 0px 0px' }}>Leaderboard</h1>
+            <h5 style={{ color: 'black', fontSize: '24px', fontWeight: 'bold', margin: '10px 0px' }}>In Realtime!</h5>
+            <LoginButton onClick={() => setShowLeaderboard(!showLeaderboard)}>
+            {showLeaderboard ? 'Hide Leaderboard' : 'Show Leaderboard'}
+          </LoginButton>
+            {!currentUser ?(<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '80%'}}>
+              <p></p>
+              <p></p>
+              <p></p>
+              <p></p>
+            </div>) : <Leaderboard />}
+          </>) : (<>
+          <div style={{ 
+            position: 'relative', 
+            width: '100%', 
+            height: '100%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            cursor: 'pointer'
+          }}>
+            <h1 style={{ 
+              color: 'black', 
+              fontSize: '32px', 
+              fontWeight: 'bold',
+              transform: 'rotate(-90deg)',
+              whiteSpace: 'nowrap',
+              margin: '0',
+              textAlign: 'center',
+              userSelect: 'none'
+            }}>
+              Click to show Leaderboard
+            </h1>
+          </div>
+          </>)}
         </Container>
       </MainContainer>
     </>
