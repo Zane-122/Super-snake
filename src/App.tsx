@@ -10,6 +10,11 @@ import Signup from './components/signup';
 import BasicButton from './components/Basic-button';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/AuthContext';
+import { getUserHighScore } from './utils/scoreUtils';
+import { ref, onValue } from 'firebase/database';
+import { db } from './firebase/firebase';
+import Leaderboard from './Leaderboard';
+
 const BackgroundTile = styled.div`
   position: fixed;
   top: 0;
@@ -84,7 +89,27 @@ function AppContent(): JSX.Element {
   const { currentUser, logout } = useAuth();
   const [isSignup, setIsSignup] = useState(true);
   const [showUI, setShowUI] = useState(true);
+  const [highScore, setHighScore] = useState(0);
   const [sendToLeaderboard, setSendToLeaderboard] = useState(true);
+
+  // Real-time high score listener
+  useEffect(() => {
+    if (currentUser) {
+      const userRef = ref(db, `users/${currentUser.uid}`);
+      const unsubscribe = onValue(userRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const userData = snapshot.val();
+          const newHighScore = userData.highScore || 0;
+          setHighScore(newHighScore);
+        }
+      });
+
+      return () => unsubscribe();
+    } else {
+      setHighScore(0);
+    }
+  }, [currentUser]);
+  
   return (
     <>
 
@@ -100,6 +125,7 @@ function AppContent(): JSX.Element {
               </LoginButton>
             </div> : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', padding: '20px 0' }}>
               <h1 style={{ color: 'black', fontSize: '36px', fontWeight: 'bold', margin: '40px 0px 0px 0px' }}>Welcome, {currentUser?.displayName || currentUser?.email}!</h1>
+              <h2 style={{ color: 'black', fontSize: '24px', fontWeight: 'bold', margin: '10px 0px' }}>High Score: {highScore}</h2>
               <BasicButton label='Logout' color='rgb(255, 100, 100)' onClick={() => logout()} size='small'/>
             </div>}
             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '90%', gap: '20px' }}>
@@ -113,10 +139,11 @@ function AppContent(): JSX.Element {
         <Container backgroundColor='rgba(159, 189, 255, 0.55)'>
           <Game showUI={showUI} />
         </Container>
-
-        {/* Leaderboard */}
+{/* 
+        Leaderboard */}
         <Container backgroundColor={currentUser ? 'rgba(255, 218, 117, 0.55)' : 'rgba(255, 255, 255, 0.23)'}>
           <h1 style={{ color: 'black', fontSize: '62px', fontWeight: 'bold', margin: '40px 0px 0px 0px' }}>Leaderboard</h1>
+          <h5 style={{ color: 'black', fontSize: '24px', fontWeight: 'bold', margin: '10px 0px' }}>In Realtime!</h5>
           {!currentUser ?(<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '80%'}}>
             <p></p>
             <p></p>
@@ -132,7 +159,7 @@ function AppContent(): JSX.Element {
               }} 
             />
             <h5 style={{ color: 'black', fontSize: '20px', fontWeight: '100', padding: '20px', margin: '0px' }}>Log in or sign up to see the leaderboard and save your scores!</h5>
-          </div>) : <></>}
+          </div>) : <Leaderboard />}
           
         </Container>
       </MainContainer>

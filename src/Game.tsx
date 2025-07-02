@@ -1,5 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Component } from 'react';
 import styled from 'styled-components';
+import { saveScore } from './utils/scoreUtils';
+import { useAuth } from './contexts/AuthContext';
+import { db, ref, get, set } from './firebase/firebase';
 
 const GameCanvas = styled.div`
   width: 100%;
@@ -39,16 +42,23 @@ const StartButton = styled.button`
   margin-top: 15px;
 `;
 
-const Circle = styled.div<{ x: number; y: number;}>`
-  position: absolute;
-  width: 50px;
-  height: 50px;
-  background: white;
-  border-radius: 50%;
-  left: ${({ x }) => x}px;
-  top: ${({ y }) => y}px;
-  border: 4px solid rgb(0, 0, 0);
-`;
+
+const Circle = ({x, y }: {x: number, y: number}) => {
+    
+  
+    return <div style={{
+    position: "absolute",
+    width: "50px",
+    height: "50px",
+    background: "white",
+    borderRadius: "50%",
+    left: x,
+    top: y,
+    border: "4px solid rgb(0, 0, 0)"
+  }} />;
+  };
+  
+
 
 interface TriangleData {
   id: number;
@@ -82,6 +92,8 @@ const Game: React.FC<GameProps> = ({ showUI = true }) => {
   const [score, setScore] = useState(0);
   const [deathCount, setDeathCount] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
+  const [isNewHighScore, setIsNewHighScore] = useState(false);
+  const [fps, setFps] = useState(0);
   const trianglesRef = useRef<TriangleData[]>([]);
   const wallTrianglesRef = useRef<WallTriangleData[]>([]);
   const gameState = useRef({
@@ -103,6 +115,10 @@ const Game: React.FC<GameProps> = ({ showUI = true }) => {
   const wallTriangleIdCounter = useRef(0);
   const frameCount = useRef(0);
   const difficultyLevel = useRef<number>(1);
+  
+  // FPS tracking
+  const lastFrameTime = useRef(performance.now());
+  const fpsUpdateInterval = useRef(0);
 
   const GRAVITY = 0.8;
   const JUMP_FORCE = -20;
@@ -111,6 +127,21 @@ const Game: React.FC<GameProps> = ({ showUI = true }) => {
   const MAX_TRIANGLES = 15;
   const WALL_TRIANGLES_PER_WALL = 1; // Number of triangles per wall
   const deathCounter = useRef(0);
+  const { currentUser } = useAuth();
+  const [highscore, setHighscore] = useState(0);
+
+  useEffect(() => {
+    if (currentUser) {
+      const userRef = ref(db, `users/${currentUser.uid}`);
+
+      get(userRef).then((snapshot) => {
+        if (snapshot.exists()) {
+          setHighscore(snapshot.val().highscore);
+          console.log(snapshot.val().highscore);
+        }
+      });
+    }
+  }, [currentUser]);
 
   const createTriangleElement = (x: number, y: number): HTMLDivElement => {
     const triangle = document.createElement('div');
@@ -330,6 +361,17 @@ const Game: React.FC<GameProps> = ({ showUI = true }) => {
     const gameLoop = () => {
       frameCount.current++;
       
+      // Calculate FPS
+      const currentTime = performance.now();
+      const deltaTime = currentTime - lastFrameTime.current;
+      lastFrameTime.current = currentTime;
+      
+      // Update FPS every 30 frames (about twice per second)
+      if (frameCount.current % 30 === 0) {
+        const currentFps = Math.round(1000 / deltaTime);
+        setFps(currentFps);
+      }
+      
       if (gameOver) {
         if (keysJustPressed.current.has(' ')) {
           resetGame();
@@ -461,8 +503,8 @@ const Game: React.FC<GameProps> = ({ showUI = true }) => {
 
       // Update wall triangles - they move back and forth along their walls
       wallTrianglesRef.current.forEach(triangle => {
-        // Update speed based on difficulty - starts slow, speeds up dramatically
-        triangle.speed = 1 + (difficultyLevel.current * 1.5);
+        // Update speed based on difficulty - starts slow, speeds up gradually
+        triangle.speed = 0.5 + (difficultyLevel.current * 0.3);
         
         // Move triangle based on direction
         if (triangle.wall === 'top' || triangle.wall === 'bottom') {
@@ -560,8 +602,26 @@ const Game: React.FC<GameProps> = ({ showUI = true }) => {
           triangle.element.parentNode.removeChild(triangle.element);
         }
       });
+
+      
     };
   }, [gameOver, gameStarted]);
+
+  // Handle score saving when game ends
+  useEffect(() => {
+    if (gameOver && currentUser) {
+      const finalScore = Math.round(score);
+      saveScore(currentUser.uid, finalScore).then((result) => {
+        if (result.isNewHighScore) {
+          console.log(`🎉 New high score! Previous: ${result.previousHighScore}, New: ${finalScore}`);
+          setIsNewHighScore(true);
+        } else {
+          console.log(`Score: ${finalScore}, High score: ${result.currentHighScore}`);
+          setIsNewHighScore(false);
+        }
+      });
+    }
+  }, [gameOver, currentUser]);
 
   return (
     <GameCanvas ref={containerRef}>
@@ -590,6 +650,7 @@ const Game: React.FC<GameProps> = ({ showUI = true }) => {
                 right: '20px',
                 background: 'rgba(0, 0, 0, 0.8)',
                 color: 'white',
+                
                 padding: '15px',
                 borderRadius: '10px',
                 fontSize: '18px',
@@ -599,6 +660,9 @@ const Game: React.FC<GameProps> = ({ showUI = true }) => {
                 <div>Time: {Math.floor(gameTime / 60)}:{(gameTime % 60).toString().padStart(2, '0')}</div>
                 <div>Difficulty: {difficultyLevel.current}</div>
                 <div>Deaths: {deathCount}</div>
+                <div style={{ color: fps < 30 ? '#ff6b6b' : fps < 50 ? '#ffd93d' : '#6bcf7f' }}>
+                  FPS: {fps}
+                </div>
               </div>
               
               {/* Score Display */}
@@ -625,6 +689,7 @@ const Game: React.FC<GameProps> = ({ showUI = true }) => {
               position: 'absolute',
               top: '50%',
               left: '50%',
+              width: '75%',
               transform: 'translate(-50%, -50%)',
               background: 'rgba(0, 0, 0, 0.8)',
               color: 'white',
@@ -635,6 +700,9 @@ const Game: React.FC<GameProps> = ({ showUI = true }) => {
             }}>
               <p style={{ fontSize: '28px', fontFamily: 'Toasty Milk', fontWeight: 'bold', color: 'rgb(255, 63, 63)' }}>Game Over!</p>
               <p>Score: {Math.round(score)}</p>
+              {isNewHighScore && (
+                <p style={{ fontSize: '20px', fontFamily: 'Toasty Milk', fontWeight: 'bold', color: 'rgb(255, 215, 0)' }}>🎉 NEW HIGH SCORE! 🎉</p>
+              )}
               <p>Survived for {Math.floor(gameTime / 60)}:{(gameTime % 60).toString().padStart(2, '0')} seconds</p>
               <p style={{ fontSize: '20px', fontFamily: 'Toasty Milk', fontWeight: 'bold', color: 'rgb(59, 170, 255)' }}>Press SPACE to restart</p>
             </div>
